@@ -25,6 +25,49 @@ class SimpleTimer(object):
         self.elapsed = timeit.default_timer() - self.ts
 
 
+passes = []
+active_pass = None
+start_time = None
+timings = OrderedDict()
+
+
+def start_timer(name):
+    """
+    Helper function that starts a timer with recursive passes.
+    This is used to determine which code is executed at the lowest
+    level of recursion.
+    """
+    global active_pass, start_time
+    curr_time = timeit.default_timer()
+    if active_pass is not None:
+        if active_pass in timings:
+            timings[active_pass] += curr_time - start_time
+        else:
+            timings[active_pass] = curr_time - start_time
+        passes.append(active_pass)
+    active_pass = name
+    start_time = curr_time
+
+
+def stop_timer():
+    """
+    Helper function that stops a timer with recursive passes.
+    This is used to determine which code is executed at the lowest
+    level of recursion.
+    """
+    global active_pass, start_time
+    curr_time = timeit.default_timer()
+    if active_pass in timings:
+        timings[active_pass] += curr_time - start_time
+    else:
+        timings[active_pass] = curr_time - start_time
+    start_time = curr_time
+    if len(passes) > 0:
+        active_pass = passes.pop()
+    else:
+        active_pass = None
+
+
 class CompilerPass(metaclass=ABCMeta):
     """ The base class for all compiler passes.
     """
@@ -75,6 +118,12 @@ class CompilerPass(metaclass=ABCMeta):
         `run_pass`.
         """
         return False
+
+    def run_pass_stack_timer(self, *args, **kwargs):
+        start_timer(self.name())
+        res = self.run_pass(*args, **kwargs)
+        stop_timer()
+        return res
 
     @abstractmethod
     def run_pass(self, *args, **kwargs):
@@ -286,7 +335,7 @@ class PassManager(object):
         with SimpleTimer() as init_time:
             mutated |= check(pss.run_initialization, internal_state)
         with SimpleTimer() as pass_time:
-            mutated |= check(pss.run_pass, internal_state)
+            mutated |= check(pss.run_pass_stack_timer, internal_state)
         with SimpleTimer() as finalize_time:
             mutated |= check(pss.run_finalizer, internal_state)
 

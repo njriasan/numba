@@ -1752,8 +1752,10 @@ def get_ir_of_code(glbls, fcode):
     from numba.core.typed_passes import PreLowerStripPhis
     reconstruct_ssa = ReconstructSSA()
     phistrip = PreLowerStripPhis()
-    reconstruct_ssa.run_pass(state)
-    phistrip.run_pass(state)
+    # Replaced for timing
+    reconstruct_ssa.run_pass_stack_timer(state)
+    # Replaced for timing
+    phistrip.run_pass_stack_timer(state)
 
     post_proc = postproc.PostProcessor(ir)
     post_proc.run(True)

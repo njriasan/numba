@@ -346,7 +346,8 @@ class CompilerBase(object):
 
     def compile_extra(self, func):
         self.state.func_id = bytecode.FunctionIdentity.from_function(func)
-        ExtractByteCode().run_pass(self.state)
+        # Replaced for timing
+        ExtractByteCode().run_pass_stack_timer(self.state)
 
         self.state.lifted = ()
         self.state.lifted_from = None
@@ -359,7 +360,8 @@ class CompilerBase(object):
         self.state.func_ir = func_ir
         self.state.nargs = self.state.func_ir.arg_count
 
-        FixupArgs().run_pass(self.state)
+        # Replaced for timing
+        FixupArgs().run_pass_stack_timer(self.state)
         return self._compile_ir()
 
     def define_pipelines(self):
