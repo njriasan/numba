@@ -495,7 +495,8 @@ class InlineWorker(object):
         state.parfor_diagnostics = ParforDiagnostics()
         state.metadata = {}
 
-        ExtractByteCode().run_pass(state)
+        # Replaced for timing
+        ExtractByteCode().run_pass_stack_timer(state)
         # This is a lie, just need *some* args for the case where an obj mode
         # with lift is needed
         state.args = len(state.bc.func_id.pysig.parameters) * (types.pyobject,)

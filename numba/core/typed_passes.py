@@ -460,7 +460,8 @@ class NoPythonBackend(LoweringPass):
             state.library.enable_object_caching()
 
         # TODO: Pull this out into the pipeline
-        NativeLowering().run_pass(state)
+        # Replaced for timing
+        NativeLowering().run_pass_stack_timer(state)
         lowered = state['cr']
         signature = typing.signature(state.return_type, *state.args)
 
