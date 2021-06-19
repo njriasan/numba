@@ -26,9 +26,10 @@ def unbox_boolean(typ, obj, c):
     return NativeValue(val, is_error=c.pyapi.c_api_error())
 
 
+@box(types.FloatLiteral)
 @box(types.IntegerLiteral)
 @box(types.BooleanLiteral)
-def box_literal_integer(typ, val, c):
+def box_literal_numeric(typ, val, c):
     val = c.context.cast(c.builder, val, typ, typ.literal_type)
     return c.box(typ.literal_type, val)
 
@@ -69,14 +70,14 @@ def box_float(typ, val, c):
 
 @unbox(types.Float)
 def unbox_float(typ, obj, c):
+    float_type = c.context.get_argument_type(typ)
     fobj = c.pyapi.number_float(obj)
     dbval = c.pyapi.float_as_double(fobj)
     c.pyapi.decref(fobj)
-    if typ == types.float32:
-        val = c.builder.fptrunc(dbval,
-                                c.context.get_argument_type(typ))
+    if isinstance(float_type, ir.types.FloatType):
+        val = c.builder.fptrunc(dbval, float_type)
     else:
-        assert typ == types.float64
+        assert isinstance(float_type, ir.types.DoubleType)
         val = dbval
     return NativeValue(val, is_error=c.pyapi.c_api_error())
 

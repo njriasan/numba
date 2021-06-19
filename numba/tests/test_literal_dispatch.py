@@ -29,6 +29,7 @@ class TestLiteralDispatch(TestCase):
     def test_literal_basic(self):
         self.check_literal_basic([123, 321])
         self.check_literal_basic(["abc", "cb123"])
+        self.check_literal_basic([13.242141, -43214.312, np.inf])
 
     def test_literal_nested(self):
         @njit
@@ -39,13 +40,18 @@ class TestLiteralDispatch(TestCase):
         def bar(y, x):
             return foo(y) + x
 
-        y, x = 3, 7
-        self.assertEqual(bar(y, x), y * 2 + x)
-        [foo_sig] = foo.signatures
-        self.assertEqual(foo_sig[0], types.literal(y))
-        [bar_sig] = bar.signatures
-        self.assertEqual(bar_sig[0], types.literal(y))
-        self.assertNotIsInstance(bar_sig[1], types.Literal)
+        y_vals = [3, 3.0]
+        x_vals = [7, 7.0]
+        self.assertEqual(bar(y_vals[0], x_vals[0]), y_vals[0] * 2 + x_vals[0])
+        self.assertEqual(bar(y_vals[1], x_vals[1]), y_vals[1] * 2 + x_vals[1])
+        foo_sigs = foo.signatures
+        bar_sigs = bar.signatures
+        assert len(foo_sigs) == len(bar_sigs)
+        for i in range(len(foo_sigs)):
+            foo_sig, bar_sig = foo_sigs[i], bar_sigs[i]
+            self.assertEqual(foo_sig[0], types.literal(y_vals[i]))
+            self.assertEqual(bar_sig[0], types.literal(y_vals[i]))
+            self.assertNotIsInstance(bar_sig[1], types.Literal)
 
     def test_literally_freevar(self):
         # Try referring to numba.literally not in the globals
@@ -327,6 +333,37 @@ class TestLiteralDispatch(TestCase):
             foo(a=123, b=321)
         self.assertIn("Repeated literal typing request",
                       str(raises.exception))
+
+    def check_literal_numeric_cast(self, literal_args):
+        # Checks casting a literal value to a numeric value
+        @njit
+        def get_literal(x):
+            return literally(x)
+
+        @njit
+        def bool_cast(x):
+            return bool(get_literal(x))
+
+        @njit
+        def int_cast(x):
+            return int(get_literal(x))
+
+        @njit
+        def float_cast(x):
+            return float(get_literal(x))
+
+        # Test with int
+        for lit in literal_args:
+            self.assertEqual(bool_cast(lit), bool(lit))
+            self.assertEqual(int_cast(lit), int(lit))
+            self.assertEqual(float_cast(lit), float(lit))
+
+        for lit, sig in zip(literal_args, get_literal.signatures):
+            self.assertEqual(sig[0].literal_value, lit)
+
+    def test_literal_numeric_cast(self):
+        self.check_literal_numeric_cast([123, 321, 0, -4])
+        self.check_literal_numeric_cast([13.242141, -43214.312, 0.0])
 
 
 class TestLiteralDispatchWithCustomType(TestCase):

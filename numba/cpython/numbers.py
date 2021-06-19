@@ -1225,7 +1225,10 @@ lower_builtin(operator.not_, types.boolean)(number_not_impl)
 @lower_cast(types.IntegerLiteral, types.Integer)
 @lower_cast(types.IntegerLiteral, types.Float)
 @lower_cast(types.IntegerLiteral, types.Complex)
-def literal_int_to_number(context, builder, fromty, toty, val):
+@lower_cast(types.FloatLiteral, types.Integer)
+@lower_cast(types.FloatLiteral, types.Float)
+@lower_cast(types.FloatLiteral, types.Complex)
+def literal_numeric_to_number(context, builder, fromty, toty, val):
     lit = context.get_constant_generic(
         builder,
         fromty.literal_type,
@@ -1309,9 +1312,10 @@ def boolean_to_any(context, builder, fromty, toty, val):
     asint = builder.zext(val, Type.int())
     return context.cast(builder, asint, types.int32, toty)
 
+@lower_cast(types.FloatLiteral, types.Boolean)
 @lower_cast(types.IntegerLiteral, types.Boolean)
 @lower_cast(types.BooleanLiteral, types.Boolean)
-def literal_int_to_boolean(context, builder, fromty, toty, val):
+def literal_numeric_to_boolean(context, builder, fromty, toty, val):
     lit = context.get_constant_generic(
         builder,
         fromty.literal_type,

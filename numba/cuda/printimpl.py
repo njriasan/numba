@@ -37,6 +37,7 @@ def int_print_impl(ty, context, builder, val):
 
 
 @print_item.register(types.Float)
+@print_item.register(types.FloatLiteral)
 def real_print_impl(ty, context, builder, val):
     lld = context.cast(builder, val, ty, types.float64)
     return "%f", [lld]

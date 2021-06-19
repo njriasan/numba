@@ -117,10 +117,12 @@ Literal.ctor_map[bool] = BooleanLiteral
 @total_ordering
 class Float(Number):
     def __init__(self, *args, **kws):
+        bitwidth = kws.pop("bitwidth", None)
         super(Float, self).__init__(*args, **kws)
         # Determine bitwidth
-        assert self.name.startswith('float')
-        bitwidth = int(self.name[5:])
+        if bitwidth is None:
+            # Determine bitwidth from name if not provided
+            bitwidth = int(self.name[5:])
         self.bitwidth = bitwidth
 
     def cast_python_value(self, value):
@@ -130,6 +132,26 @@ class Float(Number):
         if self.__class__ is not other.__class__:
             return NotImplemented
         return self.bitwidth < other.bitwidth
+
+
+class FloatLiteral(Literal, Float):
+    def __init__(self, value):
+        self._literal_init(value)
+        name = 'Literal[float]({})'.format(value)
+        basetype = self.literal_type
+        Float.__init__(
+            self,
+            name=name,
+            bitwidth=basetype.bitwidth,
+        )
+
+    def can_convert_to(self, typingctx, other):
+        conv = typingctx.can_convert(self.literal_type, other)
+        if conv is not None:
+            return max(conv, Conversion.promote)
+
+
+Literal.ctor_map[float] = FloatLiteral
 
 
 @total_ordering

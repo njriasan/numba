@@ -356,11 +356,12 @@ class IntegerModel(PrimitiveModel):
 
 
 @register_default(types.Float)
+@register_default(types.FloatLiteral)
 class FloatModel(PrimitiveModel):
     def __init__(self, dmm, fe_type):
-        if fe_type == types.float32:
+        if fe_type.bitwidth == 32:
             be_type = ir.FloatType()
-        elif fe_type == types.float64:
+        elif fe_type.bitwidth == 64:
             be_type = ir.DoubleType()
         else:
             raise NotImplementedError(fe_type)
