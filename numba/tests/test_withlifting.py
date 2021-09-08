@@ -1083,6 +1083,20 @@ class TestLiftObj(MemoryLeak, TestCase):
              r"as a (<class ')?numba.typed.typedlist.List('>)?"),
         )
 
+    def test_objmode_use_of_view(self):
+        # See issue #7158, npm functionality should only be validated if in
+        # npm.
+        @njit
+        def foo(x):
+            with numba.objmode(y="int64[::1]"):
+                y = x.view("int64")
+            return y
+
+        a = np.ones(1, np.int64).view('float64')
+        expected = foo.py_func(a)
+        got = foo(a)
+        self.assertPreciseEqual(expected, got)
+
 
 def case_inner_pyfunc(x):
     return x / 10
@@ -1159,6 +1173,20 @@ class TestBogusContext(BaseTestWithLifting):
             "Unsupported context manager in use",
             str(raises.exception),
             )
+
+    def test_with_as_fails_gracefully(self):
+        @njit
+        def foo():
+            with open('') as f:
+                pass
+
+        with self.assertRaises(errors.UnsupportedError) as raises:
+            foo()
+
+        excstr = str(raises.exception)
+        msg = ("The 'with (context manager) as (variable):' construct is not "
+               "supported.")
+        self.assertIn(msg, excstr)
 
 
 if __name__ == '__main__':

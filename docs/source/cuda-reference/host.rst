@@ -84,7 +84,11 @@ the functionality of the selected device:
 
    .. attribute:: name
 
-      The name of the device (e.g. "GeForce GTX 970")
+      The name of the device (e.g. "GeForce GTX 970").
+
+   .. attribute:: uuid
+
+      The UUID of the device (e.g. "GPU-e6489c45-5b68-3b03-bab7-0e7c8e809643").
 
    .. method:: reset
 
@@ -174,6 +178,13 @@ CUDA device can be performed asynchronously using streams, including data
 transfers and kernel execution. For further details on streams, see the `CUDA C
 Programming Guide Streams section
 <http://docs.nvidia.com/cuda/cuda-c-programming-guide/#streams>`_.
+
+Numba defaults to using the legacy default stream as the default stream. The
+per-thread default stream can be made the default stream by setting the
+environment variable ``NUMBA_CUDA_PER_THREAD_DEFAULT_STREAM`` to ``1`` (see the
+:ref:`CUDA Environment Variables section <numba-envvars-gpu-support>`).
+Regardless of this setting, the objects representing the legacy and per-thread
+default streams can be constructed using the functions below.
 
 Streams are instances of :class:`numba.cuda.cudadrv.driver.Stream`:
 

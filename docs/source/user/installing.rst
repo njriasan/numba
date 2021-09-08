@@ -5,7 +5,8 @@ Installation
 Compatibility
 -------------
 
-Numba is compatible with Python 3.6 or later, and Numpy versions 1.15 or later.
+Numba is compatible with Python 3.7 or later, and NumPy versions from 1.17 up
+to but excluding 1.21.
 
 Our supported platforms are:
 
@@ -15,7 +16,6 @@ Our supported platforms are:
 * OS X 10.9 and later (64-bit and unofficial support on M1/Arm64)
 * \*BSD (unofficial support only)
 * NVIDIA GPUs of compute capability 3.0 and later
-* AMD ROC dGPUs (linux only and not for AMD Carrizo or Kaveri APU)
 * ARMv7 (32-bit little-endian, such as Raspberry Pi 2 and 3)
 * ARMv8 (64-bit little-endian, such as the NVIDIA Jetson)
 
@@ -68,22 +68,6 @@ To use CUDA with Numba installed by `pip`, you need to install the `CUDA SDK
 <https://developer.nvidia.com/cuda-downloads>`_ from NVIDIA.  Please refer to
 :ref:`cudatoolkit-lookup` for details. Numba can also detect CUDA libraries
 installed system-wide on Linux.
-
-Enabling AMD ROCm GPU Support
------------------------------
-
-The `ROCm Platform <https://rocm.github.io/>`_ allows GPU computing with AMD
-GPUs on Linux.  To enable ROCm support in Numba,  conda is required, so begin
-with an Anaconda or Miniconda installation with Numba 0.40 or later installed.
-Then:
-
-1. Follow the `ROCm installation instructions <https://rocm.github.io/install.html>`_.
-2. Install ``roctools`` conda package from the ``numba`` channel::
-
-    $ conda install -c numba roctools
-
-See the `roc-examples <https://github.com/numba/roc-examples>`_ repository for
-sample notebooks.
 
 
 .. _numba-install-armv7:
@@ -229,14 +213,14 @@ vary with target operating system and hardware. The following lists them all
   * ``intel-openmp`` (OSX) - provides OpenMP library support for Numba's
     threading backend.
   * ``tbb-devel`` - provides TBB headers/libraries for compiling TBB support
-    into Numba's threading backend
+    into Numba's threading backend (version >= 2021 required).
 
 * Optional runtime are:
 
   * ``scipy`` - provides cython bindings used in Numba's ``np.linalg.*``
     support
   * ``tbb`` - provides the TBB runtime libraries used by Numba's TBB threading
-    backend
+    backend (version >= 2021 required).
   * ``jinja2`` - for "pretty" type annotation output (HTML) via the ``numba``
     CLI
   * ``cffi`` - permits use of CFFI bindings in Numba compiled functions
@@ -260,7 +244,7 @@ vary with target operating system and hardware. The following lists them all
     information on obtaining and installing.
   * ``graphviz`` - for some CFG inspection functionality.
   * ``pickle5`` - provides Python 3.8 pickling features for faster pickling in
-    Python 3.6 and 3.7.
+    Python 3.7.
   * ``typeguard`` - used by ``runtests.py`` for
     :ref:`runtime type-checking <type_anno_check>`.
 

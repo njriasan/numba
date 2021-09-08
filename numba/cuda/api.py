@@ -4,6 +4,7 @@ API that are reported to numba.cuda
 
 
 import contextlib
+import os
 
 import numpy as np
 
@@ -116,7 +117,8 @@ def to_device(obj, stream=0, copy=True, to=None):
         hary = d_ary.copy_to_host(stream=stream)
     """
     if to is None:
-        to, new = devicearray.auto_device(obj, stream=stream, copy=copy)
+        to, new = devicearray.auto_device(obj, stream=stream, copy=copy,
+                                          user_explicit=True)
         return to
     if copy:
         to.copy_to_device(obj, stream=stream)
@@ -144,8 +146,8 @@ def managed_array(shape, dtype=np.float_, strides=None, order='C', stream=0,
     Allocate a np.ndarray with a buffer that is managed.
     Similar to np.empty().
 
-    Managed memory is supported on Linux, and is considered experimental on
-    Windows.
+    Managed memory is supported on Linux / x86 and PowerPC, and is considered
+    experimental on Windows and Linux / AArch64.
 
     :param attach_global: A flag indicating whether to attach globally. Global
                           attachment implies that the memory is accessible from
@@ -245,14 +247,14 @@ def _prepare_shape_strides_dtype(shape, strides, dtype, order):
     if isinstance(strides, int):
         strides = (strides,)
     else:
-        if shape == ():
-            shape = (1,)
         strides = strides or _fill_stride_by_order(shape, dtype, order)
     return shape, strides, dtype
 
 
 def _fill_stride_by_order(shape, dtype, order):
     nd = len(shape)
+    if nd == 0:
+        return ()
     strides = [0] * nd
     if order == 'C':
         strides[-1] = dtype.itemsize
@@ -487,9 +489,16 @@ def detect():
     for dev in devlist:
         attrs = []
         cc = dev.compute_capability
-        attrs += [('compute capability', '%d.%d' % cc)]
-        attrs += [('pci device id', dev.PCI_DEVICE_ID)]
-        attrs += [('pci bus id', dev.PCI_BUS_ID)]
+        kernel_timeout = dev.KERNEL_EXEC_TIMEOUT
+        tcc = dev.TCC_DRIVER
+        fp32_to_fp64_ratio = dev.SINGLE_TO_DOUBLE_PRECISION_PERF_RATIO
+        attrs += [('Compute Capability', '%d.%d' % cc)]
+        attrs += [('PCI Device ID', dev.PCI_DEVICE_ID)]
+        attrs += [('PCI Bus ID', dev.PCI_BUS_ID)]
+        attrs += [('Watchdog', 'Enabled' if kernel_timeout else 'Disabled')]
+        if os.name == "nt":
+            attrs += [('Compute Mode', 'TCC' if tcc else 'WDDM')]
+        attrs += [('FP32/FP64 Performance Ratio', fp32_to_fp64_ratio)]
         if cc < (2, 0):
             support = '[NOT SUPPORTED: CC < 2.0]'
         else:

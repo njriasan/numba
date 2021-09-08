@@ -89,17 +89,34 @@ def wrap_index(typingctx, idx, size):
     (idx < 0 ? idx + size : idx) because we may have situations
     where idx > size due to the way indices are calculated
     during slice/range analysis.
+
+    Both idx and size have to be Integer types.
+    size should be from the array size vars that array_analysis
+    adds and the bitwidth should match the platform maximum.
     """
-    unified_ty = typingctx.unify_types(idx, size)
-    if not unified_ty:
-        raise ValueError("Argument types for wrap_index must match")
+    require(isinstance(idx, types.scalars.Integer))
+    require(isinstance(size, types.scalars.Integer))
+
+    # We need both idx and size to be platform size so that we can compare.
+    unified_ty = types.intp if size.signed else types.uintp
+    idx_unified = types.intp if idx.signed else types.uintp
 
     def codegen(context, builder, sig, args):
+        ll_idx_unified_ty = context.get_data_type(idx_unified)
         ll_unified_ty = context.get_data_type(unified_ty)
-        idx = builder.sext(args[0], ll_unified_ty)
-        size = builder.sext(args[1], ll_unified_ty)
+        if idx_unified.signed:
+            idx = builder.sext(args[0], ll_idx_unified_ty)
+        else:
+            idx = builder.zext(args[0], ll_idx_unified_ty)
+        if unified_ty.signed:
+            size = builder.sext(args[1], ll_unified_ty)
+        else:
+            size = builder.zext(args[1], ll_unified_ty)
         neg_size = builder.neg(size)
         zero = llvmlite.ir.Constant(ll_unified_ty, 0)
+        # If idx is unsigned then these signed comparisons will fail in those
+        # cases where the idx has the highest bit set, namely more than 2**63
+        # on 64-bit platforms.
         idx_negative = builder.icmp_signed("<", idx, zero)
         pos_oversize = builder.icmp_signed(">=", idx, size)
         neg_oversize = builder.icmp_signed("<=", idx, neg_size)
@@ -999,13 +1016,13 @@ class SymbolicEquivSet(ShapeEquivSet):
     def set_shape_setitem(self, obj, shape):
         """remember shapes of SetItem IR nodes.
         """
-        assert isinstance(obj, ir.StaticSetItem) or isinstance(obj, ir.SetItem)
+        assert isinstance(obj, (ir.StaticSetItem, ir.SetItem))
         self.ext_shapes[obj] = shape
 
     def _get_shape(self, obj):
         """Overload _get_shape to retrieve the shape of SetItem IR nodes.
         """
-        if isinstance(obj, ir.StaticSetItem) or isinstance(obj, ir.SetItem):
+        if isinstance(obj, (ir.StaticSetItem, ir.SetItem)):
             require(obj in self.ext_shapes)
             return self.ext_shapes[obj]
         else:
@@ -1247,12 +1264,6 @@ class ArrayAnalysis(object):
         pending_transforms = []
         for inst in block.body:
             redefined = set()
-            if isinstance(inst, ir.StaticSetItem):
-                orig_calltype = self.calltypes[inst]
-                inst = ir.SetItem(
-                    inst.target, inst.index_var, inst.value, inst.loc
-                )
-                self.calltypes[inst] = orig_calltype
             pre, post = self._analyze_inst(
                 label, scope, equiv_set, inst, redefined
             )
@@ -1398,7 +1409,7 @@ class ArrayAnalysis(object):
             if not result:
                 return [], []
             if result[0] is not None:
-                assert isinstance(inst, ir.SetItem)
+                assert isinstance(inst, (ir.StaticSetItem, ir.SetItem))
                 inst.index = result[0]
             result = result[1]
             target_shape = result.kwargs['shape']

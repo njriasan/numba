@@ -58,13 +58,14 @@ def fallback_context(state, msg):
             raise
 
 
-def type_inference_stage(typingctx, interp, args, return_type, locals={},
-                         raise_errors=True):
+def type_inference_stage(typingctx, targetctx, interp, args, return_type,
+                         locals={}, raise_errors=True):
     if len(args) != interp.arg_count:
         raise TypeError("Mismatch number of argument types")
     warnings = errors.WarningsFixer(errors.NumbaWarning)
     infer = typeinfer.TypeInferer(typingctx, interp, warnings)
-    with typingctx.callstack.register(infer, interp.func_id, args):
+    with typingctx.callstack.register(targetctx.target, infer, interp.func_id,
+                                      args):
         # Seed argument types
         for index, (name, ty) in enumerate(zip(interp.arg_names, args)):
             infer.seed_argument(name, index, ty)
@@ -103,6 +104,7 @@ class BaseTypeInference(FunctionPass):
             # Type inference
             typemap, return_type, calltypes, errs = type_inference_stage(
                 state.typingctx,
+                state.targetctx,
                 state.func_ir,
                 state.args,
                 state.return_type,
@@ -259,7 +261,9 @@ class PreParforPass(FunctionPass):
         preparfor_pass = _parfor_PreParforPass(
             state.func_ir,
             state.type_annotation.typemap,
-            state.type_annotation.calltypes, state.typingctx,
+            state.type_annotation.calltypes,
+            state.typingctx,
+            state.targetctx,
             state.flags.auto_parallel,
             state.parfor_diagnostics.replaced_fns
         )
@@ -296,6 +300,7 @@ class ParforPass(FunctionPass):
                                          state.type_annotation.calltypes,
                                          state.return_type,
                                          state.typingctx,
+                                         state.targetctx,
                                          state.flags.auto_parallel,
                                          state.flags,
                                          state.metadata,
@@ -358,8 +363,15 @@ class NativeLowering(LoweringPass):
         LoweringPass.__init__(self)
 
     def run_pass(self, state):
-        targetctx = state.targetctx
+        if state.library is None:
+            codegen = state.targetctx.codegen()
+            state.library = codegen.create_library(state.func_id.func_qualname)
+            # Enable object caching upfront, so that the library can
+            # be later serialized.
+            state.library.enable_object_caching()
+
         library = state.library
+        targetctx = state.targetctx
         interp = state.func_ir  # why is it called this?!
         typemap = state.typemap
         restype = state.return_type
@@ -408,9 +420,9 @@ class NativeLowering(LoweringPass):
                                            cfunc=None, env=env)
             else:
                 # Prepare for execution
-                cfunc = targetctx.get_executable(library, fndesc, env)
                 # Insert native function for use by other jitted-functions.
                 # We also register its library to allow for inlining.
+                cfunc = targetctx.get_executable(library, fndesc, env)
                 targetctx.insert_user_function(cfunc, fndesc, [library])
                 state['cr'] = _LowerResult(fndesc, call_helper,
                                            cfunc=cfunc, env=env)
@@ -425,6 +437,22 @@ class NativeLowering(LoweringPass):
 
 
 @register_pass(mutates_CFG=False, analysis_only=True)
+class NoPythonSupportedFeatureValidation(AnalysisPass):
+    """NoPython Mode check: Validates the IR to ensure that features in use are
+    in a form that is supported"""
+
+    _name = "nopython_supported_feature_validation"
+
+    def __init__(self):
+        AnalysisPass.__init__(self)
+
+    def run_pass(self, state):
+        raise_on_unsupported_feature(state.func_ir, state.typemap)
+        warn_deprecated(state.func_ir, state.typemap)
+        return False
+
+
+@register_pass(mutates_CFG=False, analysis_only=True)
 class IRLegalization(AnalysisPass):
 
     _name = "ir_legalization"
@@ -433,8 +461,6 @@ class IRLegalization(AnalysisPass):
         AnalysisPass.__init__(self)
 
     def run_pass(self, state):
-        raise_on_unsupported_feature(state.func_ir, state.typemap)
-        warn_deprecated(state.func_ir, state.typemap)
         # NOTE: this function call must go last, it checks and fixes invalid IR!
         check_and_legalize_ir(state.func_ir)
         return True
@@ -452,16 +478,6 @@ class NoPythonBackend(LoweringPass):
         """
         Back-end: Generate LLVM IR from Numba IR, compile to machine code
         """
-        if state.library is None:
-            codegen = state.targetctx.codegen()
-            state.library = codegen.create_library(state.func_id.func_qualname)
-            # Enable object caching upfront, so that the library can
-            # be later serialized.
-            state.library.enable_object_caching()
-
-        # TODO: Pull this out into the pipeline
-        # Replaced for timing
-        NativeLowering().run_pass_stack_timer(state)
         lowered = state['cr']
         signature = typing.signature(state.return_type, *state.args)
 
@@ -827,13 +843,14 @@ class PreLowerStripPhis(FunctionPass):
             for target, rhs in exporters[label]:
                 # If RHS is undefined
                 if rhs is ir.UNDEFINED:
-                    # Put in a NULL initializer
-                    rhs = ir.Expr.null(loc=target.loc)
+                    # Put in a NULL initializer, set the location to be in what
+                    # will eventually materialize as the prologue.
+                    rhs = ir.Expr.null(loc=func_ir.loc)
 
                 assign = ir.Assign(
                     target=target,
                     value=rhs,
-                    loc=target.loc
+                    loc=rhs.loc
                 )
                 # Insert at the earliest possible location; i.e. after the
                 # last assignment to rhs

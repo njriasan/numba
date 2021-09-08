@@ -9,7 +9,7 @@ import functools
 
 from llvmlite import ir
 
-from numba.core import utils, types, config
+from numba.core import utils, types, config, debuginfo
 import numba.core.datamodel
 
 
@@ -370,14 +370,18 @@ def alloca_once(builder, ty, size=None, name='', zfill=False):
     """
     if isinstance(size, int):
         size = ir.Constant(intp_t, size)
-    with builder.goto_entry_block():
-        ptr = builder.alloca(ty, size=size, name=name)
-        # Always zero-fill at init-site.  This is safe.
-        builder.store(ptr.type.pointee(None), ptr)
-    # Also zero-fill at the use-site
-    if zfill:
-        builder.store(ptr.type.pointee(None), ptr)
-    return ptr
+    # suspend debug metadata emission else it links up python source lines with
+    # alloca in the entry block as well as their actual location and it makes
+    # the debug info "jump about".
+    with debuginfo.suspend_emission(builder):
+        with builder.goto_entry_block():
+            ptr = builder.alloca(ty, size=size, name=name)
+            # Always zero-fill at init-site.  This is safe.
+            builder.store(ptr.type.pointee(None), ptr)
+        # Also zero-fill at the use-site
+        if zfill:
+            builder.store(ptr.type.pointee(None), ptr)
+        return ptr
 
 
 def sizeof(builder, ptr_type):
@@ -404,10 +408,33 @@ def insert_pure_function(module, fnty, name):
     Insert a pure function (in the functional programming sense) in the
     given module.
     """
-    fn = module.get_or_insert_function(fnty, name=name)
+    fn = get_or_insert_function(module, fnty, name)
     fn.attributes.add("readonly")
     fn.attributes.add("nounwind")
     return fn
+
+
+def get_or_insert_function(module, fnty, name):
+    """
+    Get the function named *name* with type *fnty* from *module*, or insert it
+    if it doesn't exist.
+    """
+    fn = module.globals.get(name, None)
+    if fn is None:
+        fn = ir.Function(module, fnty, name)
+    return fn
+
+
+def get_or_insert_named_metadata(module, name):
+    try:
+        return module.get_named_metadata(name)
+    except KeyError:
+        return module.add_named_metadata(name)
+
+
+def add_global_variable(module, ty, name, addrspace=0):
+    unique_name = module.get_unique_name(name)
+    return ir.GlobalVariable(module, ty, unique_name, addrspace)
 
 
 def terminate(builder, bbend):
@@ -935,7 +962,7 @@ def global_constant(builder_or_module, name, value, linkage='internal'):
         module = builder_or_module
     else:
         module = builder_or_module.module
-    data = module.add_global_variable(value.type, name=name)
+    data = add_global_variable(module, value.type, name)
     data.linkage = linkage
     data.global_constant = True
     data.initializer = value

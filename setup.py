@@ -19,12 +19,13 @@ except ImportError:
         pass
 
 
-min_python_version = "3.6"
+min_python_version = "3.7"
 max_python_version = "3.10"  # exclusive
 min_numpy_build_version = "1.11"
-min_numpy_run_version = "1.15"
-min_llvmlite_version = "0.36.0rc1"
-max_llvmlite_version = "0.37"
+min_numpy_run_version = "1.17"
+max_numpy_run_version = "1.21"
+min_llvmlite_version = "0.37.0rc1"
+max_llvmlite_version = "0.38"
 
 if sys.platform.startswith('linux'):
     # Patch for #2555 to make wheels without libpython
@@ -121,21 +122,13 @@ def is_building():
         # User forgot to give an argument probably, let setuptools handle that.
         return True
 
-    info_commands = ['--help-commands', '--name', '--version', '-V',
-                     '--fullname', '--author', '--author-email',
-                     '--maintainer', '--maintainer-email', '--contact',
-                     '--contact-email', '--url', '--license', '--description',
-                     '--long-description', '--platforms', '--classifiers',
-                     '--keywords', '--provides', '--requires', '--obsoletes']
-    # Add commands that do more than print info, but also don't need
-    # any build step.
-    info_commands.extend(['egg_info', 'install_egg_info', 'rotate'])
-
-    for command in info_commands:
-        if command in sys.argv[1:]:
-            return False
-
-    return True
+    build_commands = ['build', 'build_py', 'build_ext', 'build_clib'
+                      'build_scripts', 'install', 'install_lib',
+                      'install_headers', 'install_scripts', 'install_data',
+                      'sdist', 'bdist', 'bdist_dumb', 'bdist_rpm',
+                      'bdist_wininst', 'check', 'build_doc', 'bdist_wheel',
+                      'bdist_egg', 'develop', 'easy_install', 'test']
+    return any(bc in sys.argv[1:] for bc in build_commands)
 
 
 def get_ext_modules():
@@ -367,7 +360,7 @@ packages = find_packages(include=["numba", "numba.*"])
 build_requires = ['numpy >={}'.format(min_numpy_build_version)]
 install_requires = [
     'llvmlite >={},<{}'.format(min_llvmlite_version, max_llvmlite_version),
-    'numpy >={}'.format(min_numpy_run_version),
+    'numpy >={},<{}'.format(min_numpy_run_version, max_numpy_run_version),
     'setuptools',
 ]
 
@@ -382,7 +375,6 @@ metadata = dict(
         "Operating System :: OS Independent",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
