@@ -335,13 +335,12 @@ class PassManager(object):
         pss.analysis = self._analysis
 
         import numba.core.event as ev
-        from pprint import pformat
         qualname = internal_state.func_id.func_qualname
         ev_details = dict(
             name=f"{pss.name()} [{qualname}]",
             qualname=qualname,
             module=internal_state.func_id.modname,
-            flags=pformat(internal_state.flags.values()),
+            flags="",
             args=str(internal_state.args),
             return_type=str(internal_state.return_type),
             targetctx=str(internal_state.targetctx),
