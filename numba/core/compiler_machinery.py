@@ -121,8 +121,10 @@ class CompilerPass(metaclass=ABCMeta):
 
     def run_pass_stack_timer(self, *args, **kwargs):
         start_timer(self.name())
-        res = self.run_pass(*args, **kwargs)
-        stop_timer()
+        try:
+            res = self.run_pass(*args, **kwargs)
+        finally:
+            stop_timer()
         return res
 
     @abstractmethod
