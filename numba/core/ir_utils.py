@@ -1300,6 +1300,11 @@ def simplify_CFG(blocks):
     """transform chains of blocks that have no loop into a single block"""
     # first, inline single-branch-block to its predecessors
     cfg = compute_cfg_from_blocks(blocks)
+    # Remove dead blocks which violates assumptions when traversing the control
+    # flow graph. This should be low cost since dead_nodes are cached
+    # See: gh#7589
+    for dead in cfg.dead_nodes():
+        del blocks[dead]
     def find_single_branch(label):
         block = blocks[label]
         return len(block.body) == 1 and isinstance(block.body[0], ir.Branch)
