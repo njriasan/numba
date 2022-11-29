@@ -50,7 +50,7 @@ Dependencies
 
 * Python versions: 3.7-3.10
 * llvmlite 0.38.*
-* NumPy >=1.18,<1.22 (can build with 1.11 for ABI compatibility).
+* NumPy >=1.18,<1.23 (can build with 1.11 for ABI compatibility).
 
 Optionally:
 
@@ -88,6 +88,6 @@ Numba has a discourse forum for discussions:
 Continuous Integration
 ======================
 
-.. image:: https://dev.azure.com/numba/numba/_apis/build/status/numba.numba?branchName=master
-    :target: https://dev.azure.com/numba/numba/_build/latest?definitionId=1?branchName=master
+.. image:: https://dev.azure.com/numba/numba/_apis/build/status/numba.numba?branchName=main
+    :target: https://dev.azure.com/numba/numba/_build/latest?definitionId=1?branchName=main
     :alt: Azure Pipelines

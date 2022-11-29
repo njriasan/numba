@@ -6,7 +6,7 @@ Compatibility
 -------------
 
 Numba is compatible with Python 3.7--3.10, and Numpy versions 1.18 up
-to 1.21.
+to 1.22.
 
 Our supported platforms are:
 
@@ -143,6 +143,7 @@ Source archives of the latest release can also be found on
   * Linux ``ARM``: no conda packages, use the system compiler
   * Mac OSX: ``clang_osx-64`` and ``clangxx_osx-64`` or the system compiler at
     ``/usr/bin/clang`` (Mojave onwards)
+  * Mac OSX (M1): ``clang_osx-arm64`` and ``clangxx_osx-arm64``
   * Windows: a version of Visual Studio appropriate for the Python version in
     use
 
@@ -168,9 +169,9 @@ otherwise build by default along with information on configuration options.
   * For Linux and Windows it is necessary to provide OpenMP C headers and
     runtime  libraries compatible with the compiler tool chain mentioned above,
     and for these to be accessible to the compiler via standard flags.
-  * For OSX the conda packages ``llvm-openmp`` and ``intel-openmp`` provide
-    suitable C headers and libraries. If the compilation requirements are not
-    met the OpenMP threading backend will not be compiled
+  * For OSX the conda package ``llvm-openmp`` provides suitable C headers and
+    libraries. If the compilation requirements are not met the OpenMP threading
+    backend will not be compiled.
 
 .. envvar:: NUMBA_DISABLE_TBB (default: not set)
 
@@ -212,10 +213,9 @@ vary with target operating system and hardware. The following lists them all
 
   * ``llvm-openmp`` (OSX) - provides headers for compiling OpenMP support into
     Numba's threading backend
-  * ``intel-openmp`` (OSX) - provides OpenMP library support for Numba's
-    threading backend.
   * ``tbb-devel`` - provides TBB headers/libraries for compiling TBB support
-    into Numba's threading backend (version >= 2021 required).
+    into Numba's threading backend (2021 <= version < 2021.6 required).
+  * ``importlib_metadata`` (for Python versions < 3.9)
 
 * Optional runtime are:
 
@@ -226,8 +226,10 @@ vary with target operating system and hardware. The following lists them all
   * ``jinja2`` - for "pretty" type annotation output (HTML) via the ``numba``
     CLI
   * ``cffi`` - permits use of CFFI bindings in Numba compiled functions
-  * ``intel-openmp`` - (OSX) provides OpenMP library support for Numba's OpenMP
-    threading backend
+  * ``llvm-openmp`` - (OSX) provides OpenMP library support for Numba's OpenMP
+    threading backend.
+  * ``intel-openmp`` - (OSX) provides an alternative OpenMP library for use with
+    Numba's OpenMP threading backend.
   * ``ipython`` - if in use, caching will use IPython's cache
     directories/caching still works
   * ``pyyaml`` - permits the use of a ``.numba_config.yaml``

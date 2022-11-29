@@ -81,8 +81,9 @@ if [[ $(uname) == Linux ]]; then
     fi
 elif  [[ $(uname) == Darwin ]]; then
     $CONDA_INSTALL clang_osx-64 clangxx_osx-64
-    # Install llvm-openmp and intel-openmp on OSX too
-    $CONDA_INSTALL llvm-openmp intel-openmp
+    # Install llvm-openmp on OSX for headers during build and runtime during
+    # testing
+    $CONDA_INSTALL llvm-openmp
 fi
 
 # `pip install` all the dependencies on Python 3.10
@@ -95,8 +96,8 @@ elif [[ "$CONDA_SUBDIR" == "linux-32" || "$BITS32" == "yes" ]] ; then
     $PIP_INSTALL numpy==$NUMPY
 fi
 
-# Install latest llvmlite build
-$CONDA_INSTALL -c numba/label/dev 'llvmlite=0.37.*'
+# Install llvmlite build
+$CONDA_INSTALL -c numba/label/dev llvmlite=0.38
 
 
 # Install dependencies for building the documentation

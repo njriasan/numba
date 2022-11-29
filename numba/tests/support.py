@@ -4,6 +4,7 @@ Assorted utilities for use in tests.
 
 import cmath
 import contextlib
+from collections import defaultdict
 import enum
 import gc
 import math
@@ -106,6 +107,13 @@ skip_ppc64le_issue6465 = unittest.skipIf(platform.machine() == 'ppc64le',
                                          ("Hits: 'mismatch in size of "
                                           "parameter area' in "
                                           "LowerCall_64SVR4"))
+
+# fenv.h on M1 may have various issues:
+# https://github.com/numba/numba/issues/7822#issuecomment-1065356758
+_uname = platform.uname()
+IS_OSX_ARM64 = _uname.system == 'Darwin' and _uname.machine == 'arm64'
+skip_m1_fenv_errors = unittest.skipIf(IS_OSX_ARM64,
+    "fenv.h-like functionality unreliable on OSX arm64")
 
 try:
     import scipy.linalg.cython_lapack
@@ -1023,3 +1031,48 @@ class IRPreservingTestPipeline(CompilerBase):
 
         pipeline.finalize()
         return [pipeline]
+
+
+def print_azure_matrix():
+    """This is a utility function that prints out the map of NumPy to Python
+    versions and how many of that combination are being tested across all the
+    declared config for azure-pipelines. It is useful to run when updating the
+    azure-pipelines config to be able to quickly see what the coverage is."""
+    import yaml
+    from yaml import Loader
+    base_path = os.path.dirname(os.path.abspath(__file__))
+    azure_pipe = os.path.join(base_path, '..', '..', 'azure-pipelines.yml')
+    if not os.path.isfile(azure_pipe):
+        self.skipTest("'azure-pipelines.yml' is not available")
+    with open(os.path.abspath(azure_pipe), 'rt') as f:
+        data = f.read()
+    pipe_yml = yaml.load(data, Loader=Loader)
+
+    templates = pipe_yml['jobs']
+    # first look at the items in the first two templates, this is osx/linux
+    py2np_map = defaultdict(lambda: defaultdict(int))
+    for tmplt in templates[:2]:
+        matrix = tmplt['parameters']['matrix']
+        for setup in matrix.values():
+            py2np_map[setup['NUMPY']][setup['PYTHON']]+=1
+
+    # next look at the items in the windows only template
+    winpath = ['..', '..', 'buildscripts', 'azure', 'azure-windows.yml']
+    azure_windows = os.path.join(base_path, *winpath)
+    if not os.path.isfile(azure_windows):
+        self.skipTest("'azure-windows.yml' is not available")
+    with open(os.path.abspath(azure_windows), 'rt') as f:
+        data = f.read()
+    windows_yml = yaml.load(data, Loader=Loader)
+
+    # There's only one template in windows and its keyed differently to the
+    # above, get its matrix.
+    matrix = windows_yml['jobs'][0]['strategy']['matrix']
+    for setup in matrix.values():
+        py2np_map[setup['NUMPY']][setup['PYTHON']]+=1
+
+    print("NumPy | Python | Count")
+    print("-----------------------")
+    for npver, pys in sorted(py2np_map.items()):
+        for pyver, count in pys.items():
+            print(f" {npver} |  {pyver:<4}  |   {count}")
